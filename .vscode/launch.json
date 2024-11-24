@@ -10,9 +10,7 @@
             "name": "Bash-Debug Current File - stdio integrated",
             "cwd": "${workspaceFolder}",
             "program": "${file}",
-            // "args0": ["__WRAP_UPSTREAM=yes", "PRJ_UPSTREAM=zfs_build_dkms_hints", "setup"],
-            // "args1": [],
-            "args": ["update","release"],
+            "args": [],
             "terminalKind": "integrated"
         },
         {

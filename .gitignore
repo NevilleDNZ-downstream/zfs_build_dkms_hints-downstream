@@ -1,6 +1,6 @@
 q.*
 q_*
-typescript
+typescript*
 *.src.rpm
 *.tar
 *.tar.gz

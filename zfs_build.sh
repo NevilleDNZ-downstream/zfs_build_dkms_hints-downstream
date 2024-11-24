@@ -119,6 +119,10 @@ _PKG=.$PKG
 
 qq='"'
 
+echo_Q(){
+    printf "%s " "${@@Q}"; echo
+}
+
 TRACE0(){
     cmd="$*"
     echo $PWD: Running: "$rev$@$sgr0";
@@ -206,8 +210,10 @@ if true; then
    Script=$zfs_build_dir/zfs_build_script-z"$zfs_r"-k"$uname_r".sh
    echo "#!/bin/bash" > $Script
    echo uname_m='"'"$(uname -m)"'"' >> $Script
+   echo uname_m='"$(uname -m)"' >> $Script
    re_uname_m="$(echo $uname_m | re_esc )"
    echo uname_r='"'"$(uname -r)"'"' >> $Script
+   echo uname_r='"$(uname -r)"' >> $Script
    re_uname_r="$(echo $uname_r | re_esc )"
    re_HOME="$(echo "$HOME" | re_esc )"
    echo re_HOME="$re_HOME"
@@ -252,6 +258,8 @@ if [ "$PKG_MGR" == "yum" -o "$PKG_MGR" == "dnf" ]; then
     #TRACE $PKG_INSTALL `NEWEST ~/rpmbuild/RPMS/x86_64/libtirpc-devel-1.3.3-0.el9.x86_64.rpm`
     TRACE $PKG_INSTALL `NEWEST ~/rpmbuild/RPMS/$uname_m/libtirpc-*.$uname_m.rpm`
     TRACE $PKG_INSTALL `NEWEST ~/rpmbuild/RPMS/$uname_m/libtirpc$_DEVEL-*.$uname_m.rpm`
+elif [ "$PKG_MGR" == "apt" ]; then
+    TRACE $PKG_INSTALL dpkg-dev
 fi
 
 ## install zfs
@@ -309,16 +317,35 @@ else
 # deb: $ sudo apt install -y build-essential autoconf automake libtool gawk alien fakeroot dkms libblkid-dev uuid-dev libudev-dev libssl-dev zlib1g-dev libaio-dev libattr1-dev libelf-dev python3 python3-dev python3-setuptools python3-cffi libffi-dev python3-packaging git libcurl4-openssl-dev
     TRACE $PKG_INSTALL $kernel_devel
     TRACE $PKG_INSTALL gcc make autoconf automake libtool dkms \
-        python3{,-cffi,-packaging,-setuptools} \
+        python3{,-cffi,-packaging,-setuptools,-libzfs} \
 	    {python3,uuid,zlib1g}$_DEVEL \
         lib{aio,attr1,blkid,curl4-openssl,elf,ffi,ssl,udev}$_DEVEL
+# From ZFS's Makefile
+# On Debian (Ubuntu, and other downstream distros) the install location of
+# Python packages is "../dist-packages" instead of "../site-packages" [1].
+# The install location used by "$(PYTHON) setup.py install" must match the
+# location specified in the ZFS specfile (RPM macro "%{python_sitelib}") to
+# avoid errors during the rpmbuild process.
+# However we cannot pass "--install-layout=deb" to the setup script here because
+# it is not supported on RPM-based distros; we use the combination of
+# "--prefix", "--root" and "--install-lib" parameters instead which should work
+# on every supported system.
 fi
 
 TRACE sh autogen.sh
 TRACE ./configure
 
+if [ "$PKG_MGR" == "yum" -o "$PKG_MGR" == "dnf" ]; then
+    true
+else # it turns out that when debian says #!/bin/sh then debian DOES mean Bourne shell!!
+    #if grep -q " read .* *-d " /usr/lib/rpm/brp-compress; then
+	echo_Q sudo sed -i"-prezfs" '1s/\bsh$/bash/' /usr/lib/rpm/brp-compress  >> $Script
+	sudo sed -i"-prezfs" '1s/\bsh$/bash/' /usr/lib/rpm/brp-compress
+    #fi
+fi
+
 #TRACE make -s -j$(nproc)
-TRACE make -s -j$(nproc) $PKG
+TRACE make -k -s -j$(nproc) $PKG
 
 #Mode=Step # QQQ move this line to the beginning or end to enable/disable line debugging!! :-) #
 
